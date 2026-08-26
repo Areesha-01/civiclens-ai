@@ -1,0 +1,40 @@
+@import url('https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Work+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  --ink: #1B2A35;
+  --ink-soft: #52626D;
+  --bg: #EFEDE6;
+  --surface: #FFFFFF;
+  --brick: #A63A26;
+  --brick-dark: #7E2B1B;
+  --marigold: #D9A404;
+  --verified: #2F6B4F;
+  --verified-bg: #E7F0EA;
+  --border: #DCD8CC;
+  --radius: 3px;
+
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Work Sans', -apple-system, sans-serif;
+}
+
+h1, h2, h3 {
+  font-family: 'Zilla Slab', Georgia, serif;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0;
+}
+
+#root {
+  min-height: 100svh;
+}

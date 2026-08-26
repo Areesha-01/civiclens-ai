@@ -1,0 +1,11 @@
+node_modules/
+dist/
+venv/
+__pycache__/
+*.pyc
+.env
+.env.local
+civiclens-backend/uploads/*
+!civiclens-backend/uploads/.gitkeep
+.DS_Store
+Thumbs.db
