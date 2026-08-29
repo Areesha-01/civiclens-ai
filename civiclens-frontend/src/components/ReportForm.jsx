@@ -1,6 +1,39 @@
 import { useState } from 'react';
 import LocationPicker from './LocationPicker';
 import { AREAS } from '../constants';
+function compressImage(file, maxWidth, quality) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      img.src = e.target.result;
+    };
+
+    img.onload = () => {
+      const scale = Math.min(1, maxWidth / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      canvas.toBlob(
+        (blob) => {
+          const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
+            type: 'image/jpeg',
+          });
+          resolve(compressedFile);
+        },
+        'image/jpeg',
+        quality
+      );
+    };
+
+    reader.readAsDataURL(file);
+  });
+}
 
 const CATEGORIES = [
   { id: 'pothole', label: 'Pothole / Road Damage' },
@@ -19,11 +52,13 @@ export default function ReportForm({ onSubmit, submitting }) {
     const [area, setArea] = useState('');
   const [error, setError] = useState('');
 
-  function handlePhotoChange(e) {
+    function handlePhotoChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setPhoto(file);
-    setPhotoPreview(URL.createObjectURL(file));
+    compressImage(file, 1280, 0.75).then((compressedFile) => {
+      setPhoto(compressedFile);
+      setPhotoPreview(URL.createObjectURL(compressedFile));
+    });
   }
 
   function handleSubmit(e) {
