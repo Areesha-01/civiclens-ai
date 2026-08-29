@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import LocationPicker from './LocationPicker';
+import { AREAS } from '../constants';
 
 const CATEGORIES = [
   { id: 'pothole', label: 'Pothole / Road Damage' },
@@ -15,6 +16,7 @@ export default function ReportForm({ onSubmit, submitting }) {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('pothole');
   const [position, setPosition] = useState(null);
+    const [area, setArea] = useState('');
   const [error, setError] = useState('');
 
   function handlePhotoChange(e) {
@@ -31,8 +33,8 @@ export default function ReportForm({ onSubmit, submitting }) {
     if (!photo) return setError('Please attach a photo of the issue.');
     if (!description.trim()) return setError('Please add a short description.');
     if (!position) return setError('Please mark the location on the map.');
-
-    onSubmit({ photo, description, category, position });
+    if (!area) return setError('Please select your area.');
+        onSubmit({ photo, description, category, area, position });
   }
 
   return (
@@ -79,7 +81,11 @@ export default function ReportForm({ onSubmit, submitting }) {
         onChange={(e) => setDescription(e.target.value)}
         rows={3}
       />
-
+      <label className="field-label" htmlFor="area">Area</label>
+      <select id="area" className="text-input" value={area} onChange={(e) => setArea(e.target.value)}>
+        <option value="">Select your area</option>
+        {AREAS.map((a) => <option key={a} value={a}>{a}</option>)}
+      </select>
       <label className="field-label">Location</label>
       <LocationPicker position={position} onPick={setPosition} />
 
