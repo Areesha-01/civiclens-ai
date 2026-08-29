@@ -33,7 +33,7 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 pool = ConnectionPool(
     DATABASE_URL,
     min_size=1,
-    max_size=5,
+    max_size=2,
     open=True,
     check=ConnectionPool.check_connection,
 )

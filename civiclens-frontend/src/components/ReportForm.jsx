@@ -55,7 +55,7 @@ export default function ReportForm({ onSubmit, submitting }) {
     function handlePhotoChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    compressImage(file, 1280, 0.75).then((compressedFile) => {
+        compressImage(file, 900, 0.65).then((compressedFile) => {
       setPhoto(compressedFile);
       setPhotoPreview(URL.createObjectURL(compressedFile));
     });
