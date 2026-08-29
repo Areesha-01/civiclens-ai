@@ -1,19 +1,16 @@
 import os
 import json
 import time
-from google import genai
-from google.genai import types
 from google.genai import errors as genai_errors
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 _client = None
 
-
-def get_client():
-    """Lazily create the Gemini client (so app can still start without a key set)."""
+   def get_client():
     global _client
     if _client is None:
+        from google import genai
         _client = genai.Client(api_key=GEMINI_API_KEY)
     return _client
 
@@ -71,6 +68,7 @@ Respond with ONLY valid JSON in exactly this shape, no markdown, no extra text:
 
 def _call_gemini(model_name, image_bytes, mime_type, prompt):
     """One attempt at calling a given model. Raises on failure."""
+    from google.genai import types
     client = get_client()
     response = client.models.generate_content(
         model=model_name,
