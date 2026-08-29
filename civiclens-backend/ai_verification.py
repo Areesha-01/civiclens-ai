@@ -13,7 +13,11 @@ def get_client():
     global _client
     if _client is None:
         from google import genai
-        _client = genai.Client(api_key=GEMINI_API_KEY)
+        from google.genai import types
+        _client = genai.Client(
+            api_key=GEMINI_API_KEY,
+            http_options=types.HttpOptions(timeout=15000),  # 15 seconds, in ms
+        )
     return _client
 
 
@@ -23,7 +27,7 @@ VALID_CATEGORIES = ["pothole", "garbage", "streetlight", "water", "other"]
 # model rather than failing the whole verification.
 MODEL_CANDIDATES = ["gemini-flash-latest", "gemini-2.5-flash"]
 
-MAX_RETRIES_PER_MODEL = 2
+MAX_RETRIES_PER_MODEL = 1
 BASE_BACKOFF_SECONDS = 0.6
 
 PROMPT = """You are an AI verification system for a civic issue reporting app
