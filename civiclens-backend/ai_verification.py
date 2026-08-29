@@ -1,13 +1,15 @@
 import os
 import json
 import time
-from google.genai import errors as genai_errors
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 _client = None
 
-   def get_client():
+
+def get_client():
+    """Lazily create the Gemini client (so app can still start without a key set,
+    and so the heavy google-genai library only loads into memory when actually needed)."""
     global _client
     if _client is None:
         from google import genai
@@ -22,7 +24,7 @@ VALID_CATEGORIES = ["pothole", "garbage", "streetlight", "water", "other"]
 MODEL_CANDIDATES = ["gemini-flash-latest", "gemini-2.5-flash"]
 
 MAX_RETRIES_PER_MODEL = 2
-BASE_BACKOFF_SECONDS = 0.6 # 1.5s, 3s, 6s
+BASE_BACKOFF_SECONDS = 0.6
 
 PROMPT = """You are an AI verification system for a civic issue reporting app
 used by citizens of Lahore, Pakistan.
@@ -69,6 +71,7 @@ Respond with ONLY valid JSON in exactly this shape, no markdown, no extra text:
 def _call_gemini(model_name, image_bytes, mime_type, prompt):
     """One attempt at calling a given model. Raises on failure."""
     from google.genai import types
+
     client = get_client()
     response = client.models.generate_content(
         model=model_name,
@@ -86,9 +89,12 @@ def _call_gemini(model_name, image_bytes, mime_type, prompt):
 def _is_retryable(exc):
     """503 (overloaded) and 429 (rate limited) are worth retrying; other
     errors (bad key, bad request, etc.) are not."""
-    if isinstance(exc, genai_errors.APIError):
-        return getattr(exc, "code", None) in (503, 429)
-    # Fall back to string check in case the SDK raises a different type
+    try:
+        from google.genai import errors as genai_errors
+        if isinstance(exc, genai_errors.APIError):
+            return getattr(exc, "code", None) in (503, 429)
+    except Exception:
+        pass
     return "503" in str(exc) or "UNAVAILABLE" in str(exc) or "429" in str(exc)
 
 
@@ -123,10 +129,8 @@ def analyze_report_image(image_bytes, mime_type, description, category):
                 if _is_retryable(e) and attempt < MAX_RETRIES_PER_MODEL - 1:
                     time.sleep(BASE_BACKOFF_SECONDS * (2 ** attempt))
                     continue
-                # Not retryable, or out of retries on this model — try next model
                 break
 
-    # Every model/attempt failed — genuine technical failure.
     return {
         "is_genuine": None,
         "predicted_category": category,
