@@ -25,8 +25,7 @@ VALID_CATEGORIES = ["pothole", "garbage", "streetlight", "water", "other"]
 
 # Try the primary model first; if it's overloaded, fall back to a second
 # model rather than failing the whole verification.
-MODEL_CANDIDATES = ["gemini-flash-latest", "gemini-2.5-flash"]
-
+MODEL_CANDIDATES = ["gemini-flash-latest", "gemini-3.6-flash"]
 MAX_RETRIES_PER_MODEL = 1
 BASE_BACKOFF_SECONDS = 0.6
 
