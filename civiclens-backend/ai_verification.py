@@ -16,7 +16,7 @@ def get_client():
         from google.genai import types
         _client = genai.Client(
             api_key=GEMINI_API_KEY,
-            http_options=types.HttpOptions(timeout=15000),  # 15 seconds, in ms
+                        http_options=types.HttpOptions(timeout=45000),  # 45 seconds, in ms 
         )
     return _client
 
