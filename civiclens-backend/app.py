@@ -2,6 +2,7 @@ import os
 import uuid
 import hashlib
 import secrets
+import threading
 from functools import wraps
 from datetime import datetime, timezone
 
@@ -33,7 +34,7 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 pool = ConnectionPool(
     DATABASE_URL,
     min_size=1,
-    max_size=2,
+    max_size=3,
     open=True,
     check=ConnectionPool.check_connection,
 )
@@ -146,6 +147,58 @@ def init_db():
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def process_verification_async(report_id, image_bytes, mime_type, description, category):
+    """Runs in a background thread so the citizen gets an instant response
+    instead of waiting for the AI call and DB write to finish."""
+    try:
+        ai_result = analyze_report_image(image_bytes, mime_type, description, category)
+
+        ai_label = ai_result.get("predicted_category", category)
+        ai_confidence = ai_result.get("confidence", "unknown")
+        ai_priority = ai_result.get("priority", "medium")
+        ai_reasoning = ai_result.get("reasoning", "")
+        is_genuine = ai_result.get("is_genuine")
+        category_match = ai_result.get("category_match", True)
+
+        if is_genuine is True and category_match is False:
+            status = "rejected"
+            ai_reasoning = (
+                f"Category mismatch: photo shows '{ai_label}', not '{category}'. {ai_reasoning}"
+            ).strip()
+        elif is_genuine is False:
+            status = "rejected"
+        elif is_genuine is True:
+            status = "verified"
+        else:
+            status = "pending_verification"
+
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                UPDATE reports
+                SET status = %s, ai_label = %s, ai_confidence = %s,
+                    ai_priority = %s, ai_reasoning = %s
+                WHERE id = %s;
+                """,
+                (status, ai_label, ai_confidence, ai_priority, ai_reasoning, report_id),
+            )
+            conn.commit()
+            cur.close()
+    except Exception as e:
+        try:
+            with get_db_connection() as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    "UPDATE reports SET ai_reasoning = %s WHERE id = %s;",
+                    (f"Background verification crashed: {str(e)}", report_id),
+                )
+                conn.commit()
+                cur.close()
+        except Exception:
+            pass
 
 
 @app.route("/health", methods=["GET"])
@@ -292,61 +345,39 @@ def submit_report():
         f.write(image_bytes)
 
     mime_type = photo.mimetype or f"image/{ext}"
-    ai_result = analyze_report_image(image_bytes, mime_type, description, category)
-
-    ai_label = ai_result.get("predicted_category", category)
-    ai_confidence = ai_result.get("confidence", "unknown")
-    ai_priority = ai_result.get("priority", "medium")
-    ai_reasoning = ai_result.get("reasoning", "")
-    is_genuine = ai_result.get("is_genuine")
-    category_match = ai_result.get("category_match", True)
-
-    saved_path = os.path.join(UPLOAD_FOLDER, unique_name)
-
-    if is_genuine is True and category_match is False:
-        os.remove(saved_path)
-        return jsonify({
-            "error": "category_mismatch",
-            "message": f"This photo looks like a '{ai_label}' issue, not '{category}'. "
-                       f"Please change the category to match the photo and resubmit.",
-            "ai_label": ai_label,
-        }), 422
-
-    if is_genuine is False:
-        status = "rejected"
-    elif is_genuine is True:
-        status = "verified"
-    else:
-        status = "pending_verification"
 
     with get_db_connection() as conn:
         cur = conn.cursor()
         cur.execute(
             """
             INSERT INTO reports
-                (description, category, area, image_path, lat, lng, status,
-                 ai_label, ai_confidence, ai_priority, ai_reasoning, citizen_id)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                (description, category, area, image_path, lat, lng, status, citizen_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id, status, created_at;
             """,
-            (description, category, area, unique_name, float(lat), float(lng), status,
-             ai_label, ai_confidence, ai_priority, ai_reasoning, session["citizen_id"]),
+            (description, category, area, unique_name, float(lat), float(lng),
+             "pending_verification", session["citizen_id"]),
         )
         row = cur.fetchone()
         conn.commit()
         cur.close()
 
+    report_id = row[0]
+
+    thread = threading.Thread(
+        target=process_verification_async,
+        args=(report_id, image_bytes, mime_type, description, category),
+        daemon=True,
+    )
+    thread.start()
+
     return jsonify({
-        "id": row[0],
-        "status": row[1],
+        "id": report_id,
+        "status": "pending_verification",
         "created_at": row[2].isoformat(),
         "image_url": f"/uploads/{unique_name}",
-        "ai_label": ai_label,
-        "ai_confidence": ai_confidence,
-        "ai_priority": ai_priority,
-        "ai_reasoning": ai_reasoning,
-        "category_match": category_match,
         "citizen_category": category,
+        "message": "Your report was received and is being verified by AI. This usually takes a few seconds.",
     }), 201
 
 

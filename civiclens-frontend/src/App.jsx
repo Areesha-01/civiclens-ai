@@ -25,6 +25,21 @@ function App() {
       .then((r) => r.json())
       .then((d) => { if (d.logged_in) setAdminUsername(d.username); });
   }, []);
+    useEffect(() => {
+    if (!result || result.status !== 'pending_verification') return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_URL}/reports`);
+        const reports = await res.json();
+        const updated = reports.find((r) => r.id === result.id);
+        if (updated && updated.status !== 'pending_verification') {
+          setResult(updated);
+          clearInterval(interval);
+        }
+      } catch (e) { /* ignore transient errors while polling */ }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [result]);
 
   async function handleSubmit({ photo, description, category, area, position }) {
     setSubmitting(true);
